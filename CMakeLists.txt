@@ -17,13 +17,25 @@ include_directories(src/Eigen-3.3)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
-include_directories(/usr/local/opt/openssl/include)
-link_directories(/usr/local/opt/openssl/lib)
-link_directories(/usr/local/Cellar/libuv/1*/lib)
+    include_directories(/usr/local/opt/openssl/include)
+    link_directories(/usr/local/opt/openssl/lib)
+    link_directories(/usr/local/Cellar/libuv/1*/lib)
 
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
+if(MINGW)
+    include_directories("C:/msys64/migw32/include")
+    link_directories("C:/msys64/migw32/lib")
+endif()
+
 add_executable(mpc ${sources})
 
+if(MINGW)
+    set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_INCLUDES 0)
+    set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_LIBRARIES 0)
+endif()
 target_link_libraries(mpc ipopt z ssl uv uWS)
+if (MINGW)
+    target_link_libraries(mpc ipopt coinasl coinblas coinasl coinmumps coinlapack gfortran ws2_32)
+endif()
 

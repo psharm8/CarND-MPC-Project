@@ -1,3 +1,5 @@
+#define _USE_MATH_DEFINES
+
 #include <math.h>
 #include <uWS/uWS.h>
 #include <chrono>
@@ -14,7 +16,9 @@ using json = nlohmann::json;
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
+
 double deg2rad(double x) { return x * pi() / 180; }
+
 double rad2deg(double x) { return x * 180 / pi(); }
 
 // Checks if the SocketIO event has JSON data.
@@ -92,6 +96,23 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+          auto num_pts = ptsx.size();
+
+          // Transform waypoints to car frame of reference
+          Eigen::VectorXd waypoints_x(num_pts);
+          Eigen::VectorXd waypoints_y(num_pts);
+
+          for (auto i = 0u; i < ptsx.size(); i++) {
+            double dx = ptsx[i] - px;
+            double dy = ptsy[i] - py;
+            waypoints_x(i) = (dx * cos(-psi) - dy * sin(-psi));
+            waypoints_y(i) = (dx * sin(-psi) + dy * cos(-psi));
+          }
+
+          auto coeffs = polyfit(waypoints_x, waypoints_y, 3);
+          auto cte = polyeval(coeffs, 0);
+          auto epsi = -atan(coeffs[1]);
+
           /*
           * TODO: Calculate steering angle and throttle using MPC.
           *
@@ -101,28 +122,50 @@ int main() {
           double steer_value;
           double throttle_value;
 
+          Eigen::VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi;
+          auto vars = mpc.Solve(state, coeffs);
+          steer_value = vars[0];
+          throttle_value = vars[1];
+
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value;
+          msgJson["steering_angle"] = steer_value / (deg2rad(25));
           msgJson["throttle"] = throttle_value;
 
-          //Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
+          auto num_points = (vars.size() - 2) / 2;
+          //Display the MPC predicted trajectory
+          vector<double> mpc_x_vals(num_points);
+          vector<double> mpc_y_vals(num_points);
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
+          auto p = 0;
+          for (auto k = 2u; k < vars.size(); k += 2) {
+            mpc_x_vals[p] = vars[k];
+            mpc_y_vals[p] = vars[k + 1];
+            p++;
+          }
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
           //Display the waypoints/reference line
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
+          vector<double> next_x_vals(ptsx.size());
+          vector<double> next_y_vals(ptsx.size());
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
+          for (auto i = 0u; i < ptsx.size(); i++) {
+            next_x_vals[i] = waypoints_x[i];
+            next_y_vals[i] = waypoints_y[i];
+          }
+
+//          for (auto i = 0; i < 100; i += 4) {
+//            next_x_vals.push_back(i);
+//            next_y_vals.push_back(polyeval(coeffs, (double) i));
+//          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
@@ -175,7 +218,7 @@ int main() {
   });
 
   int port = 4567;
-  if (h.listen(port)) {
+  if (h.listen("127.0.0.1", port)) {
     std::cout << "Listening to port " << port << std::endl;
   } else {
     std::cerr << "Failed to listen to port" << std::endl;

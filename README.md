@@ -2,6 +2,37 @@
 Self-Driving Car Engineer Nanodegree Program
 
 ---
+## Rubric Points
+**The Model**
+
+The model uses vehicle's state which includes x and y coordinates, orientation (psi), velocity, cross track error (cte) and psi error (epsi) and outputs the steering angle and speed to closely follow a given path.
+
+The model uses a 3rd degree polynomial fitted over provided waypoints and calculates the steering angle and throttle value using the actuation values from previous step and current state of the car. It uses an optimiser to minimize the cost which includes cte, epsi, change in speed and change in steering.
+These values need to be tuned for the car to follow a smooth/optimal path. 
+
+
+The equations used in the model are:
+
+![Equations](./equations.png)
+ 
+
+**Timestep Length and Elapsed Duration (N & dt)**
+
+The values chosen for N and dt are 12 and 0.1.
+
+The value for dt is chosen 0.1 sec because it helps in accounting for the latency of 100ms which is fixed in this project.
+
+The value of 12 for number of steps was just enough to cover the waypoints provided at every step. Reduction in number of points led to erratic movement of the car, whereas too many steps tried to fit the projected path for a longer distance which would eventually be invalidated due to the approximate solutions, it also increases the computation time.
+
+**Polynomial Fitting and MPC Preprocessing**
+
+At every time step a list of waypoints are provided (in world coordinates). These waypoints are transformed into car's coordinate system and then a 3rd degree polynomial is fitted.
+The preprocessing of waypoints helps in computation and returning the projected points (which are expected in cars frame of reference) as the car's coordinate systems means that car would always be at origin.
+
+**Model Predictive Control with Latency**
+
+Latency is handled in a very simple way; given the latency of 100 ms which is same as the timestep interval, the actuation state to be used as previous state changed from (t-1) to (t-2) because the actuation from step (t-2) would take affect at step (t-1) due to the latency, which makes it the last actuation state for time (t).
+ 
 
 ## Dependencies
 
